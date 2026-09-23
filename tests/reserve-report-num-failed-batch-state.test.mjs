@@ -13,7 +13,12 @@ import { reserveReportNumbers, releaseReportNumbers } from '../reserve-report-nu
 import { pass, fail } from './helpers.mjs';
 
 async function reserveIn(dir) {
-  const nums = await reserveReportNumbers(1, { rootDir: dir });
+  // Pass the fixture path explicitly so a CAREER_OPS_BATCH_STATE set in the
+  // caller's environment cannot redirect these tests to another file.
+  const nums = await reserveReportNumbers(1, {
+    rootDir: dir,
+    batchStateFile: join(dir, 'batch/batch-state.tsv'),
+  });
   await releaseReportNumbers(nums, { rootDir: dir });
   return String(nums[0]).padStart(3, '0');
 }
