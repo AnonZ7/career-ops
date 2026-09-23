@@ -80,3 +80,35 @@ async function reserveIn(dir) {
     rmSync(dir, { recursive: true, force: true });
   }
 }
+
+// A corrupt "failed" row must not poison occupancy: "12abc" is not a number
+// and 9007199254740992 is not a safe integer. Both are ignored, so the next
+// free slot is still 001.
+{
+  const dir = mkdtempSync(join(tmpdir(), 'rrn-failed-corrupt-'));
+  try {
+    mkdirSync(join(dir, 'reports'), { recursive: true });
+    mkdirSync(join(dir, 'data'), { recursive: true });
+    mkdirSync(join(dir, 'batch'), { recursive: true });
+    writeFileSync(
+      join(dir, 'data/applications.md'),
+      '# Applications Tracker\n\n'
+      + '| # | Date | Company | Role | Score | Status | PDF | Report | Notes |\n'
+      + '|---|---|---|---|---|---|---|---|---|\n'
+    );
+    writeFileSync(
+      join(dir, 'batch/batch-state.tsv'),
+      'id\turl\tstatus\tstarted\tcompleted\treport_num\tscore\terror\tretries\n'
+      + 'job-1\thttps://example.com/a\tfailed\t2026-09-01T00:00:00Z\t\t12abc\t\tsession limit\t1\n'
+      + 'job-2\thttps://example.com/b\tfailed\t2026-09-01T00:00:00Z\t\t9007199254740992\t\tsession limit\t1\n'
+    );
+
+    const got = await reserveIn(dir);
+    assert.equal(got, '001');
+    pass(`reserve ignores corrupt batch-state "failed" report numbers → ${got}`);
+  } catch (err) {
+    fail(`reserve-report-num failed-corrupt test threw: ${err.message.split('\n')[0]}`);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
